@@ -234,6 +234,7 @@
       tr.querySelector('.rpm').textContent = rpm.toFixed(2);
       tr.querySelector('.hp').textContent = hp.toFixed(2);
     });
+    if (chart) renderChart();
   }
 
   function clearAll() {

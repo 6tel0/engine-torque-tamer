@@ -243,13 +243,17 @@
   }
 
   function renderChart() {
-    const points = [...tbody.children].map(tr => {
+    const rows = [...tbody.children].map((tr, i) => {
       const s = parseFloat(tr.querySelector('.speed').value) || 0;
       const t = parseFloat(tr.querySelector('.torque').value) || 0;
       const rpm = s * 3.82;
       const hp = (rpm * t * 100) / 5252;
-      return { x: rpm, y: hp };
-    }).filter(p => p.x > 0).sort((a, b) => a.x - b.x);
+      return { idx: i + 1, rpm, hp };
+    }).filter(r => r.rpm > 0 || r.hp > 0);
+
+    const labels = rows.map(r => r.idx);
+    const rpmData = rows.map(r => r.rpm);
+    const hpData  = rows.map(r => r.hp);
 
     if (chart) chart.destroy();
     const ctx = document.getElementById('powerChart').getContext('2d');
@@ -257,46 +261,57 @@
     chart = new Chart(ctx, {
       type: 'line',
       data: {
-        datasets: [{
-          label: 'Borsepower vs RPM',
-          data: points,
-          borderColor: '#fff',
-          backgroundColor: 'rgba(255,255,255,0.08)',
-          borderWidth: 2.5,
-          tension: 0.35,
-          fill: true,
-          pointRadius: 5,
-          pointBackgroundColor: '#000',
-          pointBorderColor: '#fff',
-          pointBorderWidth: 2,
-        }]
+        labels,
+        datasets: [
+          {
+            label: 'RPM',
+            data: rpmData,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.15)',
+            borderWidth: 2.5,
+            tension: 0.3,
+            fill: false,
+            pointRadius: 3,
+            pointBackgroundColor: '#3b82f6',
+          },
+          {
+            label: 'BORSEPOWER',
+            data: hpData,
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239,68,68,0.15)',
+            borderWidth: 2.5,
+            tension: 0.3,
+            fill: false,
+            pointRadius: 3,
+            pointBackgroundColor: '#ef4444',
+          }
+        ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#fff' } },
+          legend: {
+            position: 'top',
+            labels: { color: '#fff', usePointStyle: true, pointStyle: 'line' }
+          },
           tooltip: {
             backgroundColor: '#000',
             borderColor: '#fff',
             borderWidth: 1,
             titleColor: '#fff',
             bodyColor: '#fff',
-            callbacks: {
-              title: (items) => `RPM: ${items[0].parsed.x.toFixed(2)}`,
-              label: (item) => `Borsepower: ${item.parsed.y.toFixed(2)}`,
-            }
           }
         },
         scales: {
           x: {
-            type: 'linear',
-            title: { display: true, text: 'RPM', color: '#fff' },
+            title: { display: true, text: 'Data Point', color: '#fff' },
             ticks: { color: '#aaa' },
             grid: { color: '#1a1a1a' },
           },
           y: {
-            title: { display: true, text: 'Borsepower', color: '#fff' },
+            beginAtZero: true,
             ticks: { color: '#aaa' },
             grid: { color: '#1a1a1a' },
           }
@@ -312,6 +327,7 @@
   addRow(100, 12);
   addRow(150, 14);
   addRow(200, 13);
+  renderChart();
 </script>
 </body>
 </html>

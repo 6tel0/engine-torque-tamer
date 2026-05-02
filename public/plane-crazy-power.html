@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Plane Crazy Engine Power Calculator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: #000;
+    color: #e6e6e6;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+  /* blue corner glows */
+  body::before, body::after {
+    content: '';
+    position: fixed;
+    width: 350px; height: 350px;
+    border-radius: 50%;
+    filter: blur(120px);
+    z-index: 0;
+    pointer-events: none;
+  }
+  body::before {
+    background: rgba(30, 120, 255, 0.35);
+    top: -120px; left: -120px;
+  }
+  body::after {
+    background: rgba(30, 120, 255, 0.30);
+    bottom: -120px; right: -120px;
+  }
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 40px 20px 120px;
+  }
+  h1 {
+    font-size: 2.2rem;
+    margin-bottom: 8px;
+    background: linear-gradient(90deg, #fff, #4ea8ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  p.sub { color: #888; margin-bottom: 30px; }
+
+  .card {
+    background: rgba(20, 20, 20, 0.85);
+    border: 1px solid #1f1f1f;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    backdrop-filter: blur(8px);
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px; text-align: left; }
+  th {
+    color: #4ea8ff;
+    font-weight: 600;
+    border-bottom: 1px solid #222;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  td { border-bottom: 1px solid #161616; }
+  input[type="number"] {
+    width: 100%;
+    background: #0c0c0c;
+    border: 1px solid #222;
+    color: #fff;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border 0.2s;
+  }
+  input[type="number"]:focus { border-color: #4ea8ff; }
+  .readout { color: #4ea8ff; font-variant-numeric: tabular-nums; }
+  .muted { color: #888; font-variant-numeric: tabular-nums; }
+
+  button {
+    background: #0c0c0c;
+    border: 1px solid #2a2a2a;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    margin-right: 8px;
+    margin-top: 12px;
+  }
+  button:hover { border-color: #4ea8ff; color: #4ea8ff; }
+  button.primary {
+    background: linear-gradient(90deg, #1e78ff, #4ea8ff);
+    border-color: transparent;
+  }
+  button.primary:hover { color: #fff; opacity: 0.9; }
+  button.danger:hover { border-color: #ff5454; color: #ff5454; }
+
+  .chart-wrap { height: 420px; position: relative; }
+
+  footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 30px 20px 40px;
+    border-top: 1px solid #161616;
+    color: #888;
+    font-size: 0.9rem;
+  }
+  footer a { color: #4ea8ff; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  footer .made { margin-top: 6px; color: #666; font-size: 0.8rem; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>Plane Crazy Engine Power Calculator</h1>
+    <p class="sub">Add your Speed & Torque values, then generate the RPM vs Borsepower curve.</p>
+
+    <div class="card">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Speed</th>
+            <th>Torque</th>
+            <th>RPM</th>
+            <th>Borsepower</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <button onclick="addRow()">+ Add Row</button>
+      <button class="primary" onclick="renderChart()">Generate Chart</button>
+      <button class="danger" onclick="clearAll()">Clear All</button>
+    </div>
+
+    <div class="card">
+      <div class="chart-wrap"><canvas id="powerChart"></canvas></div>
+    </div>
+  </div>
+
+  <footer>
+    <div>Discord: <strong>6tel</strong> &nbsp;•&nbsp; YouTube: <a href="https://www.youtube.com/@6tel0" target="_blank">@6tel0</a></div>
+    <div class="made">MADE BY INIMENE</div>
+  </footer>
+
+<script>
+  const tbody = document.querySelector('#dataTable tbody');
+  let chart = null;
+
+  function addRow(speed = '', torque = '') {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="muted idx"></td>
+      <td><input type="number" step="any" class="speed" value="${speed}" placeholder="0"></td>
+      <td><input type="number" step="any" class="torque" value="${torque}" placeholder="0"></td>
+      <td class="readout rpm">0</td>
+      <td class="readout hp">0</td>
+      <td><button class="danger" onclick="this.closest('tr').remove(); recalc();">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+    tr.querySelectorAll('input').forEach(i => i.addEventListener('input', recalc));
+    recalc();
+  }
+
+  function recalc() {
+    [...tbody.children].forEach((tr, i) => {
+      tr.querySelector('.idx').textContent = i + 1;
+      const s = parseFloat(tr.querySelector('.speed').value) || 0;
+      const t = parseFloat(tr.querySelector('.torque').value) || 0;
+      const rpm = s * 3.82;
+      const hp = (rpm * t * 100) / 5252;
+      tr.querySelector('.rpm').textContent = rpm.toFixed(2);
+      tr.querySelector('.hp').textContent = hp.toFixed(2);
+    });
+  }
+
+  function clearAll() {
+    tbody.innerHTML = '';
+    if (chart) { chart.destroy(); chart = null; }
+    addRow();
+  }
+
+  function renderChart() {
+    const points = [...tbody.children].map(tr => {
+      const s = parseFloat(tr.querySelector('.speed').value) || 0;
+      const t = parseFloat(tr.querySelector('.torque').value) || 0;
+      const rpm = s * 3.82;
+      const hp = (rpm * t * 100) / 5252;
+      return { x: rpm, y: hp };
+    }).filter(p => p.x > 0).sort((a, b) => a.x - b.x);
+
+    if (chart) chart.destroy();
+    const ctx = document.getElementById('powerChart').getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 400);
+    grad.addColorStop(0, 'rgba(78,168,255,0.4)');
+    grad.addColorStop(1, 'rgba(78,168,255,0)');
+
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [{
+          label: 'Borsepower vs RPM',
+          data: points,
+          borderColor: '#4ea8ff',
+          backgroundColor: grad,
+          borderWidth: 2.5,
+          tension: 0.35,
+          fill: true,
+          pointRadius: 5,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#4ea8ff',
+          pointBorderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: '#e6e6e6' } },
+          tooltip: {
+            backgroundColor: '#0c0c0c',
+            borderColor: '#4ea8ff',
+            borderWidth: 1,
+            titleColor: '#4ea8ff',
+            callbacks: {
+              title: (items) => `RPM: ${items[0].parsed.x.toFixed(2)}`,
+              label: (item) => `Borsepower: ${item.parsed.y.toFixed(2)}`,
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            title: { display: true, text: 'RPM', color: '#4ea8ff' },
+            ticks: { color: '#aaa' },
+            grid: { color: '#1a1a1a' },
+          },
+          y: {
+            title: { display: true, text: 'Borsepower', color: '#4ea8ff' },
+            ticks: { color: '#aaa' },
+            grid: { color: '#1a1a1a' },
+          }
+        }
+      }
+    });
+  }
+
+  // seed with a few rows
+  addRow(50, 10);
+  addRow(100, 12);
+  addRow(150, 14);
+  addRow(200, 13);
+</script>
+</body>
+</html>
